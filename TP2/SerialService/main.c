@@ -111,60 +111,58 @@ void* socket_handler (void* message)
         //return 1;
     }
 
-	// Abrimos puerto con bind()
-	if (bind(s, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1) {
-		close(s);
-		perror("listener: bind");
-		//return 1;
-	}
+    // Abrimos puerto con bind()
+    if (bind(s, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1) {
+        close(s);
+        perror("listener: bind");
+        //return 1;
+    }
 
-	// Seteamos socket en modo Listening
-	if (listen (s, 10) == -1) // backlog=10
-  	{
-    	perror("error en listen");
-    	exit(1);
-  	}
-	
-	while(1)
-	{
-		// Ejecutamos accept() para recibir conexiones entrantes
-		addr_len = sizeof(struct sockaddr_in);
-    	if ( (newfd = accept(s, (struct sockaddr *)&clientaddr, &addr_len)) == -1){
-			perror("error en accept");
-			exit(1);
-	    }
-	 	
-		//Imprime en consola ip de cliente
-		char ipClient[32];
-		inet_ntop(AF_INET, &(clientaddr.sin_addr), ipClient, sizeof(ipClient));
-		printf  ("server:  conexion desde:  %s\n",ipClient);
+    // Seteamos socket en modo Listening
+    if (listen (s, 10) == -1){
+        perror("error en listen");
+        exit(1);
+    }
+    
+    while(1)
+    {
+        // Ejecutamos accept() para recibir conexiones entrantes
+        addr_len = sizeof(struct sockaddr_in);
+        if ( (newfd = accept(s, (struct sockaddr *)&clientaddr, &addr_len)) == -1){
+            perror("error en accept");
+            exit(1);
+        }
+
+        //Imprime en consola ip de cliente
+        char ipClient[32];
+        inet_ntop(AF_INET, &(clientaddr.sin_addr), ipClient, sizeof(ipClient));
+        printf  ("server:  conexion desde:  %s\n",ipClient);
 
         //Queda en este bucle mientras no se corte la conexion el cliente
-		while(1){
+        while(1){
             
             //read bloqueante a la espera de una trama
             //Inicio de mutex para proteger variable global "newfd"
             pthread_mutex_lock (&mutexData);
-			
+
             n = read(newfd, buf_from_web, 128);
             
             pthread_mutex_unlock (&mutexData);
             //Fin mutex
             
             if(n == -1 ){
-				perror("Error leyendo mensaje en socket\n");
-				exit(1);
-			}
-			else if(n == EOF){
+                perror("Error leyendo mensaje en socket\n");
+                exit(1);
+            }
+            else if(n == EOF){
                 newfd = -1;
-				printf("EOF\n");
-				break;
-			}
-			else{
-				
-                
+                printf("EOF\n");
+                break;
+            }
+            else{
+
                 buf_from_web[n]=0x00;
-				printf("Recibi %d bytes.:%s", n, buf_from_web);
+                printf("Recibi %d bytes.:%s", n, buf_from_web);
                 
                 sscanf(buf_from_web, ":STATES%c%c%c%c\n", &X, &Y, &W, &Z);
                 
@@ -179,14 +177,16 @@ void* socket_handler (void* message)
                 usleep(100);
                 
                                
-			}
-		}
+            }  
+            
+        }
 
-    	close(newfd);
-	}
-	
-	//Cierra socket
-	close(s);
+        close(newfd);   
+        
+    }
+
+    //Cierra socket
+    close(s);
 
     return NULL;
 }
@@ -199,9 +199,9 @@ void* serial_handler (void* message)
     while(1){
         if((read_bytes = serial_receive(buf_from_ciaa, 30)) <= 0){
             
-		}
+        }
         else{
-			
+
             buf_from_ciaa[read_bytes] = 0x00;
             if(buf_from_ciaa[1] == 'O'){
                 //Acá no hace nada
@@ -234,65 +234,66 @@ void* serial_handler (void* message)
                 //Fin mutex
             }
             
-			//printf("Trama: %d bytes. %s", read_bytes, buf_from_ciaa);
-		}
-		
-		usleep(10000);
-	}
-	
-	return NULL;
+            //printf("Trama: %d bytes. %s", read_bytes, buf_from_ciaa);
+        }
+
+        usleep(10000);  
+        
+    }
+
+    return NULL;
 }
 
 int main(void)
 {
 
-   	//Verifica conexion con puerto serial
-	if((uart_conn = serial_open(PORT_NUMBER, BAUD_RATE)) < 0){
-		printf("Error al iniciar puerto\r\n");
-		return 0;
-	};
-	
-	printf("Puerto: %d\n", uart_conn);
+    //Verifica conexion con puerto serial
+    if((uart_conn = serial_open(PORT_NUMBER, BAUD_RATE)) < 0){
+        printf("Error al iniciar puerto\r\n");
+        return 0;
+    };
+
+    printf("Puerto: %d\n", uart_conn);
     
     //Signal SIGINT
     signal_sigint.sa_handler = signals_handler;    
-	signal_sigint.sa_flags = 0;
-	if(sigemptyset(&signal_sigterm.sa_mask) != 0){
+    signal_sigint.sa_flags = 0;
+    if(sigemptyset(&signal_sigterm.sa_mask) != 0){
         perror("sigemptyset signal_sigint");
     }
     if (sigaction(SIGINT, &signal_sigint, NULL) == -1) {
-		perror("sigaction signal_sigint");
-		exit(1);
-	}
+        perror("sigaction signal_sigint");
+        exit(1);
+    }
 
     //Signal SIGTERM
     signal_sigterm.sa_handler = signals_handler;    
-	signal_sigterm.sa_flags = 0;
-	if(sigemptyset(&signal_sigterm.sa_mask) != 0){
+    signal_sigterm.sa_flags = 0;
+    if(sigemptyset(&signal_sigterm.sa_mask) != 0){
         perror("sigemptyset signal_sigterm");
     }
-	if(sigaction(SIGINT, &signal_sigterm, NULL) == -1) {
-		perror("sigaction signal_sigterm");
-		exit(1);
-	}
+    if(sigaction(SIGINT, &signal_sigterm, NULL) == -1) {
+        perror("sigaction signal_sigterm");
+        exit(1);
+    }
 
-	//Bloqueo de signals
-	blockSignals();
+    //Bloqueo de signals
+    blockSignals();
 
     //Creacion de threads
     //Thread socket
-	if(pthread_create (&thread_socket, NULL, socket_handler, NULL) != 0){
+    if(pthread_create (&thread_socket, NULL, socket_handler, NULL) != 0){
         perror("Error al crear thread_socket\n");
         exit (1);
     }
-	//Thread puerto serial
-	if(pthread_create (&thread_serial, NULL, serial_handler, NULL) != 0){
+    //Thread puerto serial
+    if(pthread_create (&thread_serial, NULL, serial_handler, NULL) != 0){
         perror("Error al crear thread_serial\n");
         exit (1);
     }
     
     //Desbloqueo de signals
-	unblockSignals();
+    unblockSignals();
     
     printf("Programa corriendo...\n");
     
@@ -313,31 +314,31 @@ int main(void)
     } 
     
     //Join threads
-	//Join thread_socket
- 	void* ret;
+    //Join thread_socket
+    void* ret;
     if(pthread_join (thread_socket, &ret) != 0){
         perror("join thread_socket");
     }
-	if(ret==PTHREAD_CANCELED)
-		printf("Se cancelo thread_socket\n");
-	else
-		printf("Termino thread_socket\n");
+    if(ret==PTHREAD_CANCELED)
+        printf("Se cancelo thread_socket\n");
+    else
+        printf("Termino thread_socket\n");
 
     //Join thread_serial
-	if(pthread_join (thread_serial, &ret) != 0){
+    if(pthread_join (thread_serial, &ret) != 0){
         perror("join thread_serial");
     }
-	if(ret==PTHREAD_CANCELED)
-		printf("Se cancelo thread_serial\n");
-	else
-		printf("Termino thread_serial\n");	
-	
+    if(ret==PTHREAD_CANCELED)
+        printf("Se cancelo thread_serial\n");
+    else
+        printf("Termino thread_serial\n");
+    
     //Cierra puerto COM
     serial_close();
     
     //Fin del programa
     printf("Fin\n");    	
-	
-	exit(EXIT_SUCCESS);
-	return 0;
+
+    exit(EXIT_SUCCESS);
+    return 0;
 }

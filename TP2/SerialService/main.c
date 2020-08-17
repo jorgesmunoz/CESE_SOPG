@@ -47,7 +47,7 @@ volatile sig_atomic_t signal_flag;
 //Handler signals
 void signals_handler(int sig)
 {
-	write(1,"Se presiono ctrl+c!!\n",21);
+    write(1,"Se presiono ctrl+c!!\n",21);
     
     signal_flag = 1;   
 
@@ -96,11 +96,11 @@ void* socket_handler (void* message)
 {
     
     // Crea socket
-	if((s = socket(PF_INET,SOCK_STREAM, 0)) == -1){
+    if((s = socket(PF_INET,SOCK_STREAM, 0)) == -1){
         perror("error socket cration");
     }
 
-	// Cargamos datos de IP:PORT del server
+    // Cargamos datos de IP:PORT del server
     bzero((char *) &serveraddr, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_port = htons(10000);
@@ -196,11 +196,11 @@ void* serial_handler (void* message)
 {
     
     //Loop infinito para recibir tramas de la EDU-CIAA
- 	while(1){
-		if((read_bytes = serial_receive(buf_from_ciaa, 30)) <= 0){
+    while(1){
+        if((read_bytes = serial_receive(buf_from_ciaa, 30)) <= 0){
             
 		}
-		else{
+        else{
 			
             buf_from_ciaa[read_bytes] = 0x00;
             if(buf_from_ciaa[1] == 'O'){

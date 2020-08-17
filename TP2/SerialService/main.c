@@ -142,20 +142,19 @@ void* socket_handler (void* message)
         while(1){
             
             //read bloqueante a la espera de una trama
-            //Inicio de mutex para proteger variable global "newfd"
-            pthread_mutex_lock (&mutexData);
-
             n = read(newfd, buf_from_web, 128);
-            
-            pthread_mutex_unlock (&mutexData);
-            //Fin mutex
             
             if(n == -1 ){
                 perror("Error leyendo mensaje en socket\n");
                 exit(1);
             }
             else if(n == EOF){
+                //Inicio de mutex para proteger variable global "newfd"
+                pthread_mutex_lock (&mutexData);
                 newfd = -1;
+                pthread_mutex_unlock (&mutexData);
+                //Fin mutex
+                
                 printf("EOF\n");
                 break;
             }
@@ -219,19 +218,21 @@ void* serial_handler (void* message)
                 //Inicia mutex para proteger variable global "newfd"
                 pthread_mutex_lock (&mutexData);
                 
-                if(newfd == -1){
-                    printf("Se cerro conexion\n");
-                    exit(1);
+                if(newfd > 0){
+                    // Envia mensaje a servidor web / Chequeo de errores
+                    if(write (newfd, buf_to_web, 9) == -1){                    
+                        perror("Error escribiendo mensaje en socket");
+                    }
                 }
-                // Envia mensaje a servidor web / Chequeo de errores
-                if (write (newfd, buf_to_web, 9) == -1){                    
-                    perror("Error escribiendo mensaje en socket");
-                    exit (1);
-                }               
-                usleep(100);
+                else{
+                    printf("Se cerro conexion\n");
+                }
                 
                 pthread_mutex_unlock (&mutexData);
                 //Fin mutex
+                           
+                usleep(100);              
+                
             }
             
             //printf("Trama: %d bytes. %s", read_bytes, buf_from_ciaa);

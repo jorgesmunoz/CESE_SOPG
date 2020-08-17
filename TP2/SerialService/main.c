@@ -40,24 +40,17 @@ char buf_to_web[30];
 char buf_from_web[30];
 char serial_cmd[] = ">OUTS:";
 char web_cmd[] = ":LINE";
-int newfd, n, s;	
+int newfd;
+int n, s;
+volatile sig_atomic_t signal_flag; 
 
 //Handler signals
 void signals_handler(int sig)
 {
 	write(1,"Se presiono ctrl+c!!\n",21);
     
-    //Se cancelan los threads antes del join
-    //pthread_cancel de thread_socket
-    if(pthread_cancel(thread_socket) != 0){
-        perror("Error al cancelar thread_socket\n");
-        exit (1);
-    }
-    //pthread_cancel de thread_serial
-    if(pthread_cancel(thread_serial) != 0){
-        perror("Error al cancelar thread_serial\n");
-        exit (1);
-    } 
+    signal_flag = 1;   
+
 }
 
 //Funcion para bloquear señales
@@ -150,19 +143,25 @@ void* socket_handler (void* message)
 		while(1){
             
             //read bloqueante a la espera de una trama
-			n = read(newfd, buf_from_web, 128);
-			if(n == -1 ){
+            //Inicio de mutex para proteger variable global "newfd"
+            pthread_mutex_lock (&mutexData);
+			
+            n = read(newfd, buf_from_web, 128);
+            
+            pthread_mutex_unlock (&mutexData);
+            //Fin mutex
+            
+            if(n == -1 ){
 				perror("Error leyendo mensaje en socket\n");
 				exit(1);
 			}
 			else if(n == EOF){
+                newfd = -1;
 				printf("EOF\n");
 				break;
 			}
 			else{
 				
-                //Inicia mutex para escribir por puerto serial
-                pthread_mutex_lock (&mutexData);
                 
                 buf_from_web[n]=0x00;
 				printf("Recibi %d bytes.:%s", n, buf_from_web);
@@ -178,8 +177,7 @@ void* socket_handler (void* message)
                 serial_send(buf_to_ciaa, strlen(buf_to_ciaa));
                 
                 usleep(100);
-                pthread_mutex_unlock (&mutexData);
-                //Fin mutex
+                
                                
 			}
 		}
@@ -210,9 +208,6 @@ void* serial_handler (void* message)
             }
             else{
                 
-                //Inicia mutex para enviar trama a servidor web
-                pthread_mutex_lock (&mutexData);
-                
                 sscanf(buf_from_ciaa, ">TOGGLE STATE:%c\r\n", &N);
                 
                 //Arma string “>OUTS:X,Y,W,Z\r\n”
@@ -220,6 +215,14 @@ void* serial_handler (void* message)
                 
                 printf("Trama web: %s", buf_to_web);
                 
+                //Verifica conexion
+                //Inicia mutex para proteger variable global "newfd"
+                pthread_mutex_lock (&mutexData);
+                
+                if(newfd == -1){
+                    printf("Se cerro conexion\n");
+                    exit(1);
+                }
                 // Envia mensaje a servidor web / Chequeo de errores
                 if (write (newfd, buf_to_web, 9) == -1){                    
                     perror("Error escribiendo mensaje en socket");
@@ -292,6 +295,22 @@ int main(void)
 	unblockSignals();
     
     printf("Programa corriendo...\n");
+    
+    while(!signal_flag){
+        usleep(1000);
+    }
+    
+    //Se cancelan los threads antes del join
+    //pthread_cancel de thread_socket
+    if(pthread_cancel(thread_socket) != 0){
+        perror("Error al cancelar thread_socket\n");
+        exit (1);
+    }
+    //pthread_cancel de thread_serial
+    if(pthread_cancel(thread_serial) != 0){
+        perror("Error al cancelar thread_serial\n");
+        exit (1);
+    } 
     
     //Join threads
 	//Join thread_socket
